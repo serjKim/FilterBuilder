@@ -2,8 +2,8 @@ import { BehaviorSubject, Subject, Observable } from 'rxjs';
 import { Injectable } from '@angular/core';
 
 export enum FieldType {
-    String = 0,
-    Number = 1,
+    Textual = 0,
+    Numeric = 1,
     Select = 4,
 }
 
@@ -49,22 +49,6 @@ export type FieldValue =
     | NumberValue
     ;
 
-class MutableValue<T> {
-    public readonly value$: BehaviorSubject<T>;
-
-    public get contents(): T {
-        return this.value$.value;
-    }
-
-    public set contents(val: T) {
-        this.value$.next(val);
-    }
-
-    constructor(initValue: T) {
-        this.value$ = new BehaviorSubject<T>(initValue);
-    }
-}
-
 /****************
  * Filter field (Definition)
  ****************/
@@ -99,62 +83,63 @@ export class FieldId {
     }
 }
 
-const INTERNAL_FIELD_VALUE = Symbol('Access to the mutable field value');
+const FIELD_VALUE = Symbol('Defines a field value (brand)');
 
-export class StringField {
-    public readonly fieldType = FieldType.String;
-    public readonly value$: Observable<StringValue>;
-    public readonly [INTERNAL_FIELD_VALUE]: MutableValue<StringValue>;
+interface FieldDefinition<TValue extends FieldValue> {
+    readonly fieldType: FieldType;
+    readonly [FIELD_VALUE]: TValue;
+}
+
+export class TextualField implements FieldDefinition<StringValue> { // TODO: rename to TextField
+    public readonly fieldType = FieldType.Textual;
+    public readonly [FIELD_VALUE] = new StringValue('');
 
     constructor(
         public readonly fieldId: FieldId,
         public readonly name: string,
-        value: StringValue,
-    ) {
-        const mutableValue = new MutableValue(value);
-        this[INTERNAL_FIELD_VALUE] = mutableValue;
-        this.value$ = mutableValue.value$;
-    }
+    ) { }
 }
 
-export class NumberField {
-    public readonly fieldType = FieldType.Number;
-    public readonly value$: Observable<NumberValue>;
-    public readonly [INTERNAL_FIELD_VALUE]: MutableValue<NumberValue>;
+export class NumericField implements FieldDefinition<NumberValue> {
+    public readonly fieldType = FieldType.Numeric;
+    public readonly [FIELD_VALUE] = new NumberValue(0);
 
     constructor(
         public readonly fieldId: FieldId,
         public readonly name: string,
-        value: NumberValue,
-    ) {
-        const mutableValue = new MutableValue(value);
-        this[INTERNAL_FIELD_VALUE] = mutableValue;
-        this.value$ = mutableValue.value$;
-    }
+    ) { }
 }
 
-export class SelectField {
+export class SelectField implements FieldDefinition<StringValue> {
     public readonly fieldType = FieldType.Select;
-    public readonly value$: Observable<StringValue>;
-    public readonly [INTERNAL_FIELD_VALUE]: MutableValue<StringValue>;
+    public readonly [FIELD_VALUE] = new StringValue('');
 
     constructor(
         public readonly fieldId: FieldId,
         public readonly name: string,
-        value: StringValue,
         public readonly items: ReadonlyArray<string>,
-    ) {
-        const mutableValue = new MutableValue(value);
-        this[INTERNAL_FIELD_VALUE] = mutableValue;
-        this.value$ = mutableValue.value$;
-    }
+    ) { }
 }
 
 export type Field =
-    | StringField
-    | NumberField
+    | TextualField
+    | NumericField
     | SelectField
     ;
+
+const copyField = (field: Field): Field => {
+    switch (field.fieldType) {
+        case FieldType.Textual:
+            return new TextualField(field.fieldId, field.name);
+        case FieldType.Numeric:
+            return new NumericField(field.fieldId, field.name);
+        case FieldType.Select:
+            return new SelectField(field.fieldId, field.name, field.items);
+        default:
+            const unreachable: never = field;
+            throw new Error(`Unexpected type ${unreachable}`);
+    }
+};
 
 /***************
  * Field Values
@@ -163,7 +148,7 @@ export type Field =
 export type SerializedFieldValues = { [fieldId: string]: string };
 
 export class FieldValues {
-    public readonly items: ReadonlyMap<number, FieldValue>; // TODO:
+    public readonly items: ReadonlyMap<number, FieldValue>;
 
     constructor(pairs: readonly [FieldId, FieldValue][]) {
         this.items = new Map(pairs.map(([fieldId, value]) => [fieldId.value, value]));
@@ -222,9 +207,9 @@ export class FieldValues {
     private static deserializeValue(fieldType: FieldType, value: string | null | undefined): readonly [FieldValue, boolean] {
         switch (fieldType) {
             case FieldType.Select:
-            case FieldType.String:
+            case FieldType.Textual:
                 return StringValue.tryParse(value);
-            case FieldType.Number:
+            case FieldType.Numeric:
                 return NumberValue.tryParse(value);
             default:
                 const unreachable: never = fieldType;
@@ -233,67 +218,97 @@ export class FieldValues {
     }
 }
 
-type FilterRow<TField, TValue> = {
-    field: TField,
-    value: TValue
-};
+/**
+ * Current value (reactive)
+ */
+
+const INTERNAL_VALUE = Symbol('Access to the mutable value');
+
+class CurrentValue<T> {
+    private readonly subject$: BehaviorSubject<T>;
+    public readonly value$: Observable<T>;
+
+    public get [INTERNAL_VALUE](): T {
+        return this.subject$.value;
+    }
+
+    public set [INTERNAL_VALUE](val: T) {
+        this.subject$.next(val);
+    }
+
+    constructor(initValue: T) {
+        this.value$ = this.subject$ = new BehaviorSubject<T>(initValue);
+    }
+
+    public static copyCurrentValue<T>(cv: CurrentValue<T>): CurrentValue<T> {
+        return new CurrentValue<T>(cv[INTERNAL_VALUE]);
+    }
+}
+
+type ExtractValueType<T> = T extends FieldDefinition<infer V> ? V : never;
 
 /**
- * Collection of filter fields. A map of fields is under the hood.
+ * Represents a pair of field definition + mutable value
+ */
+export class FilterPair<T> {
+    public readonly currentValue: CurrentValue<ExtractValueType<T>>;
+
+    constructor(
+        public readonly field: T,
+        initValue: ExtractValueType<T>
+    ){
+        this.currentValue = new CurrentValue(initValue);
+    }
+}
+
+/**
+ * Collection of pairs. A map of pairs by fieldId is under the hood.
  */
 export class FilterFields {
-    private readonly fieldById: Map<number, Field>;
+    private readonly pairById: Map<number, FilterPair<Field>>;
 
-    constructor(public readonly array: ReadonlyArray<Field>) {
-        this.fieldById = new Map<number, Field>(array.map(field => [field.fieldId.value, field]));
+    constructor(public readonly pairs: ReadonlyArray<FilterPair<Field>>) {
+        this.pairById = new Map<number, FilterPair<Field>>(pairs.map(pair => [pair.field.fieldId.value, pair]));
     }
 
     /**
      * Clones the current filter fields
      */
     public static copy(fields: FilterFields): FilterFields {
-        const fieldsArray = Array
-            .from(fields.fieldById.values())
-            .map(field => FilterFields.copyField(field));
+        const pairsArray = Array
+            .from(fields.pairById.values())
+            .map(pair => FilterFields.copyPair(pair));
 
-        return new FilterFields(fieldsArray);
+        return new FilterFields(pairsArray);
     }
 
     /**
-     * Clone the field
+     * Clone the pair
      */
-    private static copyField(field: Field): Field {
-        switch (field.fieldType) {
-            case FieldType.String:
-                return new StringField(field.fieldId, field.name, field[INTERNAL_FIELD_VALUE].contents);
-            case FieldType.Number:
-                return new NumberField(field.fieldId, field.name, field[INTERNAL_FIELD_VALUE].contents);
-            case FieldType.Select:
-                return new SelectField(field.fieldId, field.name, field[INTERNAL_FIELD_VALUE].contents, field.items);
-            default:
-                const unreachable: never = field;
-                throw new Error(`Unexpected type ${unreachable}`);
-        }
+    private static copyPair(pair: FilterPair<Field>): FilterPair<Field> {
+        const fieldCopy = copyField(pair.field);
+        const currentValueCopy = CurrentValue.copyCurrentValue(pair.currentValue);
+        return new FilterPair(fieldCopy, currentValueCopy[INTERNAL_VALUE]);
     }
 
     /**
-     * Sets a value to the field by id
+     * Sets a value to the corresponding field, inferring from the one
      */
-    public setValue(fieldId: FieldId, value: FieldValue): void { // TODO: possible pass incorrect value
-        const field = this.fieldById.get(fieldId.value);
+    public setValue<T extends Field>(field: T, fieldValue: ExtractValueType<T>): void {
+        const pair = this.pairById.get(field.fieldId.value);
 
-        if (field == null) {
+        if (pair == null) {
             return;
         }
 
-        field[INTERNAL_FIELD_VALUE].contents = value;
+        pair.currentValue[INTERNAL_VALUE] = fieldValue;
     }
 
     /**
      * Gets a field by id. Returns undefined if not found
      */
     public getById(fieldId: FieldId): Field | undefined {
-        return this.fieldById.get(fieldId.value);
+        return this.pairById.get(fieldId.value)?.field;
     }
 
     /**
@@ -301,11 +316,11 @@ export class FilterFields {
      */
     public setValues(values: FieldValues): void {
         values.items.forEach((value, fieldIdValue) => {
-            const field = this.fieldById.get(fieldIdValue);
-            if (field == null) {
+            const pair = this.pairById.get(fieldIdValue);
+            if (pair == null) {
                 return;
             }
-            field[INTERNAL_FIELD_VALUE].contents = value;
+            pair.currentValue[INTERNAL_VALUE] = value;
         });
     }
 
@@ -314,8 +329,8 @@ export class FilterFields {
      */
     public values(): FieldValues {
         return new FieldValues(
-            Array.from(this.fieldById.entries())
-                .map(([fieldId, fieldValue]) => [new FieldId(fieldId), fieldValue[INTERNAL_FIELD_VALUE].contents])
+            Array.from(this.pairById.entries())
+                .map(([fieldId, pair]) => [new FieldId(fieldId), pair.currentValue[INTERNAL_VALUE]])
         );
     }
 }
@@ -344,27 +359,25 @@ export class Filter {
 
     constructor(
         public readonly filterId: FilterId,
-        fields: ReadonlyArray<Field>
+        pairs: readonly FilterPair<Field>[],
     ) {
-        this.fields = new FilterFields(fields);
+        this.fields = new FilterFields(pairs);
     }
 }
 
-type ExtractFieldValue<T> = T extends { readonly value$: Observable<infer V> } ? V : never;
-
 /**
- * Emits a pair of fieldId and field (like EventEmitter)
+ * Emits a pair of field definition and field value (like EventEmitter)
  */
 @Injectable()
 export class FieldValueEmitter {
-    private readonly fieldValue$ = new Subject<[FieldId, FieldValue]>();
-    public readonly fieldValue: Observable<[FieldId, FieldValue]> = this.fieldValue$;
+    private readonly fieldValue$ = new Subject<[Field, FieldValue]>();
+    public readonly fieldValue: Observable<[Field, FieldValue]> = this.fieldValue$;
 
     /**
      * Emit a field and a value with the corresponding type being inferred from the one
      */
-    public emit<T extends Field>(field: T, fieldValue: ExtractFieldValue<T>): void {
-        this.fieldValue$.next([field.fieldId, fieldValue]);
+    public emit<T extends Field>(field: T, fieldValue: ExtractValueType<T>): void {
+        this.fieldValue$.next([field, fieldValue]);
     }
 }
 
