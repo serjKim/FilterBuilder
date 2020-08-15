@@ -1,11 +1,9 @@
 import { BehaviorSubject, Subject, Observable } from 'rxjs';
 import { Injectable } from '@angular/core';
 
-export enum FieldType {
-    Textual = 0,
-    Numeric = 1,
-    Select = 4,
-}
+/**************
+ * Field Value
+ **************/
 
 export class StringValue {
     constructor(
@@ -49,9 +47,9 @@ export type FieldValue =
     | NumberValue
     ;
 
-/****************
+/****************************
  * Filter field (Definition)
- ****************/
+ ****************************/
 
 /**
  * Wrapper over a number value
@@ -83,16 +81,22 @@ export class FieldId {
     }
 }
 
-const FIELD_VALUE = Symbol('Defines a field value (brand)');
-
-interface FieldDefinition<TValue extends FieldValue> {
-    readonly fieldType: FieldType;
-    readonly [FIELD_VALUE]: TValue;
+export enum FieldType {
+    Textual = 0,
+    Numeric = 1,
+    Select = 4,
 }
 
-export class TextualField implements FieldDefinition<StringValue> { // TODO: rename to TextField
+const FIELD_BRAND = Symbol('Defines a field value (brand)');
+
+interface FieldDefinition<FT extends FieldType, TValue extends FieldValue> {
+    readonly fieldType: FT;
+    readonly [FIELD_BRAND]: TValue;
+}
+
+export class TextualField implements FieldDefinition<FieldType.Textual, StringValue> {
     public readonly fieldType = FieldType.Textual;
-    public readonly [FIELD_VALUE] = new StringValue('');
+    public readonly [FIELD_BRAND] = new StringValue('');
 
     constructor(
         public readonly fieldId: FieldId,
@@ -100,9 +104,9 @@ export class TextualField implements FieldDefinition<StringValue> { // TODO: ren
     ) { }
 }
 
-export class NumericField implements FieldDefinition<NumberValue> {
+export class NumericField implements FieldDefinition<FieldType.Numeric, NumberValue> {
     public readonly fieldType = FieldType.Numeric;
-    public readonly [FIELD_VALUE] = new NumberValue(0);
+    public readonly [FIELD_BRAND] = new NumberValue(0);
 
     constructor(
         public readonly fieldId: FieldId,
@@ -110,9 +114,9 @@ export class NumericField implements FieldDefinition<NumberValue> {
     ) { }
 }
 
-export class SelectField implements FieldDefinition<StringValue> {
+export class SelectField implements FieldDefinition<FieldType.Select, StringValue> {
     public readonly fieldType = FieldType.Select;
-    public readonly [FIELD_VALUE] = new StringValue('');
+    public readonly [FIELD_BRAND] = new StringValue('');
 
     constructor(
         public readonly fieldId: FieldId,
@@ -222,17 +226,17 @@ export class FieldValues {
  * Current value (reactive)
  */
 
-const INTERNAL_VALUE = Symbol('Access to the mutable value');
+const INTERNAL_CURRENT_VALUE = Symbol('Access to the mutable value');
 
 class CurrentValue<T> {
     private readonly subject$: BehaviorSubject<T>;
     public readonly value$: Observable<T>;
 
-    public get [INTERNAL_VALUE](): T {
+    public get [INTERNAL_CURRENT_VALUE](): T {
         return this.subject$.value;
     }
 
-    public set [INTERNAL_VALUE](val: T) {
+    public set [INTERNAL_CURRENT_VALUE](val: T) {
         this.subject$.next(val);
     }
 
@@ -241,23 +245,43 @@ class CurrentValue<T> {
     }
 
     public static copyCurrentValue<T>(cv: CurrentValue<T>): CurrentValue<T> {
-        return new CurrentValue<T>(cv[INTERNAL_VALUE]);
+        return new CurrentValue<T>(cv[INTERNAL_CURRENT_VALUE]);
     }
 }
 
-type ExtractValueType<T> = T extends FieldDefinition<infer V> ? V : never;
+type ExtractField<T> = T extends FieldDefinition<infer FT, infer V>
+    ? FT extends FieldType
+        ? V extends FieldValue
+            ? T
+            : never
+        : never
+    : never;
+
+type ExtractValueType<T> = T extends FieldDefinition<infer FT, infer V> ? V : never;
 
 /**
- * Represents a pair of field definition + mutable value
+ * Represents a pair of field definition + field value
  */
 export class FilterPair<T> {
     public readonly currentValue: CurrentValue<ExtractValueType<T>>;
 
     constructor(
-        public readonly field: T,
+        public readonly field: ExtractField<T>,
         initValue: ExtractValueType<T>
     ){
         this.currentValue = new CurrentValue(initValue);
+    }
+
+    public isTextual(): this is FilterPair<TextualField> {
+        return this.field.fieldType === FieldType.Textual;
+    }
+
+    public isNumeric(): this is FilterPair<NumericField> {
+        return this.field.fieldType === FieldType.Numeric;
+    }
+
+    public isSelect(): this is FilterPair<SelectField> {
+        return this.field.fieldType === FieldType.Select;
     }
 }
 
@@ -288,11 +312,11 @@ export class FilterFields {
     private static copyPair(pair: FilterPair<Field>): FilterPair<Field> {
         const fieldCopy = copyField(pair.field);
         const currentValueCopy = CurrentValue.copyCurrentValue(pair.currentValue);
-        return new FilterPair(fieldCopy, currentValueCopy[INTERNAL_VALUE]);
+        return new FilterPair(fieldCopy, currentValueCopy[INTERNAL_CURRENT_VALUE]);
     }
 
     /**
-     * Sets a value to the corresponding field, inferring from the one
+     * Sets a value by field
      */
     public setValue<T extends Field>(field: T, fieldValue: ExtractValueType<T>): void {
         const pair = this.pairById.get(field.fieldId.value);
@@ -301,7 +325,7 @@ export class FilterFields {
             return;
         }
 
-        pair.currentValue[INTERNAL_VALUE] = fieldValue;
+        pair.currentValue[INTERNAL_CURRENT_VALUE] = fieldValue;
     }
 
     /**
@@ -320,7 +344,7 @@ export class FilterFields {
             if (pair == null) {
                 return;
             }
-            pair.currentValue[INTERNAL_VALUE] = value;
+            pair.currentValue[INTERNAL_CURRENT_VALUE] = value;
         });
     }
 
@@ -330,7 +354,7 @@ export class FilterFields {
     public values(): FieldValues {
         return new FieldValues(
             Array.from(this.pairById.entries())
-                .map(([fieldId, pair]) => [new FieldId(fieldId), pair.currentValue[INTERNAL_VALUE]])
+                .map(([fieldId, pair]) => [new FieldId(fieldId), pair.currentValue[INTERNAL_CURRENT_VALUE]])
         );
     }
 }
