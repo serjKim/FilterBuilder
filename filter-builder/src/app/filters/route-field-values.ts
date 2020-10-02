@@ -11,18 +11,7 @@ export class RouteFieldValues {
 
     public values(filterFields: FilterFields): Observable<FieldValues> {
         return this.activatedRoute.queryParams.pipe(
-            map(params => {
-                /*
-                    ?1=text
-                    &2=1
-                    &3=a
-                    &4=...
-                    &5=...
-
-                    Fields -> FieldValues
-                */
-                return FieldValues.deserialize(filterFields, params);
-            })
+            map(params => FieldValues.deserialize(filterFields, params))
         );
     }
 

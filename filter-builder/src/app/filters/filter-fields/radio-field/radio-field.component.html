@@ -1,0 +1,6 @@
+<label>{{ field.name }}</label>
+<mat-radio-group [ngModel]="(value$ | async)?.value" (ngModelChange)="onRadioChange($event)">
+    <mat-radio-button *ngFor="let option of field.options" [value]="option">
+        {{ option }}
+    </mat-radio-button>
+</mat-radio-group>

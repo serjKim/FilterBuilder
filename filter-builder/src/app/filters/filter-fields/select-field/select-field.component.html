@@ -1,0 +1,8 @@
+<mat-form-field appearance="legacy">
+    <mat-label>{{ field.name }}</mat-label>
+    <mat-select [value]="(value$ | async)?.value" (valueChange)="onSelectChange($event)">
+        <mat-option *ngFor="let item of field.items$ | async" [value]="item">
+            {{ item }}
+        </mat-option>
+    </mat-select>
+</mat-form-field>

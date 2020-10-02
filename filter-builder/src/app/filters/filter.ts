@@ -1,5 +1,5 @@
-import { BehaviorSubject, Subject, Observable } from 'rxjs';
 import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 
 /**************
  * Field Value
@@ -42,9 +42,36 @@ export class NumberValue {
     }
 }
 
+export class BooleanValue {
+    constructor(
+        public readonly value: boolean | null
+    ) {}
+
+    public static tryParse(raw: unknown): readonly [BooleanValue, boolean] {
+        if (typeof raw === 'string') {
+            if (raw === 'false') {
+                return [new BooleanValue(false), true];
+            } else if (raw === 'true') {
+                return [new BooleanValue(true), true];
+            }
+        }
+
+        if (typeof raw === 'boolean') {
+            return [new BooleanValue(raw), true];
+        }
+
+        return [new BooleanValue(false), false];
+    }
+
+    public stringify(): string | null | undefined {
+        return this.value?.toString();
+    }
+}
+
 export type FieldValue =
     | StringValue
     | NumberValue
+    | BooleanValue
     ;
 
 /****************************
@@ -85,14 +112,26 @@ export enum FieldType {
     Textual = 0,
     Numeric = 1,
     Select = 4,
+    Checkbox = 5,
+    Radio = 6,
 }
 
-const FIELD_BRAND = Symbol('Defines a field value (brand)');
+const FIELD_BRAND = Symbol('Defines a field value type (brand)');
 
 interface FieldDefinition<FT extends FieldType, TValue extends FieldValue> {
     readonly fieldType: FT;
     readonly [FIELD_BRAND]: TValue;
 }
+
+type EnsureField<T> = T extends FieldDefinition<infer FT, infer V>
+    ? FT extends FieldType
+        ? V extends FieldValue
+            ? T
+            : never
+        : never
+    : never;
+
+type ExtractFieldValue<T> = T extends FieldDefinition<infer FT, infer V> ? V : never;
 
 export class TextualField implements FieldDefinition<FieldType.Textual, StringValue> {
     public readonly fieldType = FieldType.Textual;
@@ -121,7 +160,28 @@ export class SelectField implements FieldDefinition<FieldType.Select, StringValu
     constructor(
         public readonly fieldId: FieldId,
         public readonly name: string,
-        public readonly items: ReadonlyArray<string>,
+        public readonly items$: Observable<readonly string[]>,
+    ) { }
+}
+
+export class CheckboxField implements FieldDefinition<FieldType.Checkbox, BooleanValue> {
+    public readonly fieldType = FieldType.Checkbox;
+    public readonly [FIELD_BRAND] = new BooleanValue(null);
+
+    constructor(
+        public readonly fieldId: FieldId,
+        public readonly name: string,
+    ) { }
+}
+
+export class RadioField implements FieldDefinition<FieldType.Radio, StringValue> {
+    public readonly fieldType = FieldType.Radio;
+    public readonly [FIELD_BRAND] = new StringValue('');
+
+    constructor(
+        public readonly fieldId: FieldId,
+        public readonly name: string,
+        public readonly options: ReadonlyArray<string>
     ) { }
 }
 
@@ -129,6 +189,8 @@ export type Field =
     | TextualField
     | NumericField
     | SelectField
+    | CheckboxField
+    | RadioField
     ;
 
 const copyField = (field: Field): Field => {
@@ -138,7 +200,11 @@ const copyField = (field: Field): Field => {
         case FieldType.Numeric:
             return new NumericField(field.fieldId, field.name);
         case FieldType.Select:
-            return new SelectField(field.fieldId, field.name, field.items);
+            return new SelectField(field.fieldId, field.name, field.items$);
+        case FieldType.Checkbox:
+            return new CheckboxField(field.fieldId, field.name);
+        case FieldType.Radio:
+            return new RadioField(field.fieldId, field.name, field.options);
         default:
             const unreachable: never = field;
             throw new Error(`Unexpected type ${unreachable}`);
@@ -212,9 +278,12 @@ export class FieldValues {
         switch (fieldType) {
             case FieldType.Select:
             case FieldType.Textual:
+            case FieldType.Radio:
                 return StringValue.tryParse(value);
             case FieldType.Numeric:
                 return NumberValue.tryParse(value);
+            case FieldType.Checkbox:
+                return BooleanValue.tryParse(value);
             default:
                 const unreachable: never = fieldType;
                 throw new Error(`Unexpected type ${unreachable}`);
@@ -249,25 +318,15 @@ class CurrentValue<T> {
     }
 }
 
-type ExtractField<T> = T extends FieldDefinition<infer FT, infer V>
-    ? FT extends FieldType
-        ? V extends FieldValue
-            ? T
-            : never
-        : never
-    : never;
-
-type ExtractValueType<T> = T extends FieldDefinition<infer FT, infer V> ? V : never;
-
 /**
  * Represents a pair of field definition + field value
  */
 export class FilterPair<T> {
-    public readonly currentValue: CurrentValue<ExtractValueType<T>>;
+    public readonly currentValue: CurrentValue<ExtractFieldValue<T>>;
 
     constructor(
-        public readonly field: ExtractField<T>,
-        initValue: ExtractValueType<T>
+        public readonly field: EnsureField<T>,
+        initValue: ExtractFieldValue<T>
     ){
         this.currentValue = new CurrentValue(initValue);
     }
@@ -282,6 +341,14 @@ export class FilterPair<T> {
 
     public isSelect(): this is FilterPair<SelectField> {
         return this.field.fieldType === FieldType.Select;
+    }
+
+    public isCheckbox(): this is FilterPair<CheckboxField> {
+        return this.field.fieldType === FieldType.Checkbox;
+    }
+
+    public isRadio(): this is FilterPair<RadioField> {
+        return this.field.fieldType === FieldType.Radio;
     }
 }
 
@@ -318,7 +385,7 @@ export class FilterFields {
     /**
      * Sets a value by field
      */
-    public setValue<T extends Field>(field: T, fieldValue: ExtractValueType<T>): void {
+    public setValue<T extends Field>(field: T, fieldValue: ExtractFieldValue<T>): void {
         const pair = this.pairById.get(field.fieldId.value);
 
         if (pair == null) {
@@ -400,32 +467,7 @@ export class FieldValueEmitter {
     /**
      * Emit a field and a value with the corresponding type being inferred from the one
      */
-    public emit<T extends Field>(field: T, fieldValue: ExtractValueType<T>): void {
+    public emit<T extends Field>(field: T, fieldValue: ExtractFieldValue<T>): void {
         this.fieldValue$.next([field, fieldValue]);
     }
 }
-
-/*
-    {
-        fieldId: 1,
-        fields: [
-            {
-                id,
-                name, // unique ?
-                [hint]
-                [checkbox],
-                order
-
-                value: boolean
-            },
-            {
-                select,
-                items,
-                defaultValue
-            },
-            {
-                [{ id, name, initValue: T }, { value: T }]
-            }
-        ]
-    }
-*/
