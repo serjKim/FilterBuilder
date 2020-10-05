@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Host } from '@angular/core';
 import { combineLatest, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, takeUntil } from 'rxjs/operators';
 import {
     Filter,
     FilterId,
@@ -19,18 +19,26 @@ import {
     BooleanValue,
     RadioField,
 } from '../filters';
+import { NgDestroyer } from '../utils';
 
 @Component({
     selector: 'app-playground',
     templateUrl: './playground.component.html',
     styleUrls: ['./playground.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    providers: [FieldValueEmitter],
+    providers: [
+        FieldValueEmitter,
+        NgDestroyer,
+    ],
 })
 export class PlaygroundComponent {
     public readonly filter: Filter;
 
-    constructor(routeFieldValues: RouteFieldValues, @Host() fieldValueEmitter: FieldValueEmitter) {
+    constructor(
+        routeFieldValues: RouteFieldValues,
+        @Host() fieldValueEmitter: FieldValueEmitter,
+        destroyer$: NgDestroyer
+    ) {
         const colors$ = of<{ color: string, category: string }[]>([
             { color: 'red', category: 'a' },
             { color: 'green', category: 'a' },
@@ -79,19 +87,21 @@ export class PlaygroundComponent {
             )
         ]);
 
-        fieldValueEmitter.fieldValue.subscribe(
-            (([field, fieldValue]) => {
-                const fieldsCopy = FilterFields.copy(this.filter.fields);
+        fieldValueEmitter.fieldValue.pipe(
+            takeUntil(destroyer$)
+        ).subscribe(([field, fieldValue]) => {
+            const fieldsCopy = FilterFields.copy(this.filter.fields);
 
-                fieldsCopy.setValue(field, fieldValue);
-                const values = fieldsCopy.values();
-                const serializedValues = FieldValues.serialize(values);
+            fieldsCopy.setValue(field, fieldValue);
+            const values = fieldsCopy.values();
+            const serializedValues = FieldValues.serialize(values);
 
-                routeFieldValues.apply(serializedValues);
-            })
-        );
+            routeFieldValues.apply(serializedValues);
+        });
 
-        routeFieldValues.values(this.filter.fields).subscribe(fieldValues => {
+        routeFieldValues.values(this.filter.fields).pipe(
+            takeUntil(destroyer$)
+        ).subscribe(fieldValues => {
             this.filter.fields.setValues(fieldValues);
         });
     }
