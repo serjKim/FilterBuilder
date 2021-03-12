@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { Observable } from 'rxjs';
-import { FilterPair, SelectField, StringValue, Field, FieldValueEmitter } from '../../filter';
+import { Field, FieldValueEmitter, FilterPair, SelectField, StringValue } from '../../filter';
 
 @Component({
     selector: 'app-select-field',
     templateUrl: './select-field.component.html',
     styleUrls: ['./select-field.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SelectFieldComponent {
     public field!: SelectField;
@@ -21,7 +21,7 @@ export class SelectFieldComponent {
         this.value$ = pair.currentValue.value$;
     }
 
-    constructor(private fieldValueEmitter: FieldValueEmitter) { }
+    constructor(private fieldValueEmitter: FieldValueEmitter) {}
 
     public onSelectChange(newValue: string): void {
         this.fieldValueEmitter.emit(this.field, new StringValue(newValue));

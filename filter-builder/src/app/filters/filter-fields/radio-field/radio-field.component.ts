@@ -3,10 +3,10 @@ import { Observable } from 'rxjs';
 import { Field, FieldValueEmitter, FilterPair, RadioField, StringValue } from '../../filter';
 
 @Component({
-  selector: 'app-radio-field',
-  templateUrl: './radio-field.component.html',
-  styleUrls: ['./radio-field.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'app-radio-field',
+    templateUrl: './radio-field.component.html',
+    styleUrls: ['./radio-field.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RadioFieldComponent {
     public field!: RadioField;
@@ -21,7 +21,7 @@ export class RadioFieldComponent {
         this.value$ = pair.currentValue.value$;
     }
 
-    constructor(private fieldValueEmitter: FieldValueEmitter) { }
+    constructor(private fieldValueEmitter: FieldValueEmitter) {}
 
     public onRadioChange(newValue: string): void {
         this.fieldValueEmitter.emit(this.field, new StringValue(newValue));

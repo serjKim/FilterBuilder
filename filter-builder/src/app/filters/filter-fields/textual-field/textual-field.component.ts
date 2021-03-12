@@ -6,7 +6,7 @@ import { Field, FieldValueEmitter, FilterPair, StringValue, TextualField } from 
     selector: 'app-textual-field',
     templateUrl: './textual-field.component.html',
     styleUrls: ['./textual-field.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TextualFieldComponent {
     public field!: TextualField;
@@ -24,7 +24,7 @@ export class TextualFieldComponent {
     @Output()
     public stringValueChange = new EventEmitter<string>();
 
-    constructor(private fieldValueEmitter: FieldValueEmitter) { }
+    constructor(private fieldValueEmitter: FieldValueEmitter) {}
 
     public onStringChange(value: string): void {
         this.fieldValueEmitter.emit(this.field, new StringValue(value));

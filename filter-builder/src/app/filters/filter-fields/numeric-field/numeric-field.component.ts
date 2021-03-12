@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { Observable } from 'rxjs';
-import { FilterPair, NumericField, NumberValue, Field, FieldValueEmitter } from '../../filter';
+import { Field, FieldValueEmitter, FilterPair, NumberValue, NumericField } from '../../filter';
 
 @Component({
     selector: 'app-numeric-field',
     templateUrl: './numeric-field.component.html',
     styleUrls: ['./numeric-field.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NumericFieldComponent {
     public field!: NumericField;
@@ -21,7 +21,7 @@ export class NumericFieldComponent {
         this.value$ = pair.currentValue.value$;
     }
 
-    constructor(private fieldValueEmitter: FieldValueEmitter) { }
+    constructor(private fieldValueEmitter: FieldValueEmitter) {}
 
     public onNumberChange(newValue: number): void {
         this.fieldValueEmitter.emit(this.field, new NumberValue(newValue));

@@ -21,4 +21,4 @@ describe('FieldValue', () => {
             expect(result.value).toBe(raw);
         });
     });
-  });
+});

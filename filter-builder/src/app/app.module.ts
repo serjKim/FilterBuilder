@@ -7,17 +7,9 @@ import { FiltersModule } from './filters';
 import { PlaygroundComponent } from './playground/playground.component';
 
 @NgModule({
-  declarations: [
-    AppComponent,
-    PlaygroundComponent
-  ],
-  imports: [
-    BrowserModule,
-    AppRoutingModule,
-    FiltersModule,
-    BrowserAnimationsModule,
-  ],
-  providers: [],
-  bootstrap: [AppComponent]
+    declarations: [AppComponent, PlaygroundComponent],
+    imports: [BrowserModule, AppRoutingModule, FiltersModule, BrowserAnimationsModule],
+    providers: [],
+    bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}

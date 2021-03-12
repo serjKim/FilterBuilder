@@ -1,5 +1,10 @@
 <mat-form-field appearance="legacy">
     <mat-label>{{ field.name }}</mat-label>
-    <input type="number" matInput [ngModel]="(value$ | async)?.value" (ngModelChange)="onNumberChange($event)">
+    <input
+        type="number"
+        matInput
+        [ngModel]="(value$ | async)?.value"
+        (ngModelChange)="onNumberChange($event)"
+    />
     <!-- <mat-hint>Some entity name</mat-hint> -->
 </mat-form-field>

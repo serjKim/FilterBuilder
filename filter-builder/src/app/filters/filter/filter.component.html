@@ -1,11 +1,31 @@
 <form autocomplete="off">
     <ng-container *ngFor="let pair of filter!.fields.pairs">
         <ng-container [ngSwitch]="pair.field.fieldType">
-            <app-textual-field class="field" *ngSwitchCase="fieldType.Textual" [filterPair]="pair"></app-textual-field>
-            <app-numeric-field class="field" *ngSwitchCase="fieldType.Numeric" [filterPair]="pair"></app-numeric-field>
-            <app-select-field class="field" *ngSwitchCase="fieldType.Select" [filterPair]="pair"></app-select-field>
-            <app-checkbox-field class="field" *ngSwitchCase="fieldType.Checkbox" [filterPair]="pair"></app-checkbox-field>
-            <app-radio-field class="field" *ngSwitchCase="fieldType.Radio" [filterPair]="pair"></app-radio-field>
+            <app-textual-field
+                class="field"
+                *ngSwitchCase="fieldType.Textual"
+                [filterPair]="pair"
+            ></app-textual-field>
+            <app-numeric-field
+                class="field"
+                *ngSwitchCase="fieldType.Numeric"
+                [filterPair]="pair"
+            ></app-numeric-field>
+            <app-select-field
+                class="field"
+                *ngSwitchCase="fieldType.Select"
+                [filterPair]="pair"
+            ></app-select-field>
+            <app-checkbox-field
+                class="field"
+                *ngSwitchCase="fieldType.Checkbox"
+                [filterPair]="pair"
+            ></app-checkbox-field>
+            <app-radio-field
+                class="field"
+                *ngSwitchCase="fieldType.Radio"
+                [filterPair]="pair"
+            ></app-radio-field>
             <div *ngSwitchDefault>[Unknown fieldType: {{ fieldType[pair.field.fieldType] }}]</div>
         </ng-container>
     </ng-container>

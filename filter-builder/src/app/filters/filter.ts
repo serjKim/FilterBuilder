@@ -6,9 +6,7 @@ import { BehaviorSubject, Observable, Subject } from 'rxjs';
  **************/
 
 export class StringValue {
-    constructor(
-        public readonly value: string | null
-    ) { }
+    constructor(public readonly value: string | null) {}
 
     public static tryParse(raw: unknown): readonly [StringValue, boolean] {
         return typeof raw === 'string'
@@ -22,9 +20,7 @@ export class StringValue {
 }
 
 export class NumberValue {
-    constructor(
-        public readonly value: number | null
-    ) { }
+    constructor(public readonly value: number | null) {}
 
     public static tryParse(raw: unknown): readonly [NumberValue, boolean] {
         if (typeof raw === 'string') {
@@ -43,9 +39,7 @@ export class NumberValue {
 }
 
 export class BooleanValue {
-    constructor(
-        public readonly value: boolean | null
-    ) {}
+    constructor(public readonly value: boolean | null) {}
 
     public static tryParse(raw: unknown): readonly [BooleanValue, boolean] {
         if (typeof raw === 'string') {
@@ -68,6 +62,7 @@ export class BooleanValue {
     }
 }
 
+// prettier-ignore
 export type FieldValue =
     | StringValue
     | NumberValue
@@ -82,7 +77,7 @@ export type FieldValue =
  * Wrapper over a number value
  */
 export class FieldId {
-    constructor(public readonly value: number) { }
+    constructor(public readonly value: number) {}
 
     public static tryParse(raw: unknown | null | undefined): readonly [FieldId, boolean] {
         if (typeof raw === 'number') {
@@ -137,20 +132,14 @@ export class TextualField implements FieldDefinition<FieldType.Textual, StringVa
     public readonly fieldType = FieldType.Textual;
     public readonly [FIELD_BRAND] = new StringValue('');
 
-    constructor(
-        public readonly fieldId: FieldId,
-        public readonly name: string,
-    ) { }
+    constructor(public readonly fieldId: FieldId, public readonly name: string) {}
 }
 
 export class NumericField implements FieldDefinition<FieldType.Numeric, NumberValue> {
     public readonly fieldType = FieldType.Numeric;
     public readonly [FIELD_BRAND] = new NumberValue(0);
 
-    constructor(
-        public readonly fieldId: FieldId,
-        public readonly name: string,
-    ) { }
+    constructor(public readonly fieldId: FieldId, public readonly name: string) {}
 }
 
 export class SelectField implements FieldDefinition<FieldType.Select, StringValue> {
@@ -161,17 +150,14 @@ export class SelectField implements FieldDefinition<FieldType.Select, StringValu
         public readonly fieldId: FieldId,
         public readonly name: string,
         public readonly items$: Observable<readonly string[]>,
-    ) { }
+    ) {}
 }
 
 export class CheckboxField implements FieldDefinition<FieldType.Checkbox, BooleanValue> {
     public readonly fieldType = FieldType.Checkbox;
     public readonly [FIELD_BRAND] = new BooleanValue(null);
 
-    constructor(
-        public readonly fieldId: FieldId,
-        public readonly name: string,
-    ) { }
+    constructor(public readonly fieldId: FieldId, public readonly name: string) {}
 }
 
 export class RadioField implements FieldDefinition<FieldType.Radio, StringValue> {
@@ -181,10 +167,11 @@ export class RadioField implements FieldDefinition<FieldType.Radio, StringValue>
     constructor(
         public readonly fieldId: FieldId,
         public readonly name: string,
-        public readonly options: ReadonlyArray<string>
-    ) { }
+        public readonly options: ReadonlyArray<string>,
+    ) {}
 }
 
+// prettier-ignore
 export type Field =
     | TextualField
     | NumericField
@@ -246,7 +233,10 @@ export class FieldValues {
         return obj;
     }
 
-    public static deserialize(fields: FilterFields, obj: SerializedFieldValues | null | undefined): FieldValues {
+    public static deserialize(
+        fields: FilterFields,
+        obj: SerializedFieldValues | null | undefined,
+    ): FieldValues {
         if (obj == null) {
             return new FieldValues([]);
         }
@@ -265,7 +255,10 @@ export class FieldValues {
                 continue;
             }
 
-            const [parsedValue, isValueParsed] = FieldValues.deserializeValue(field.fieldType, obj[rawFieldId]);
+            const [parsedValue, isValueParsed] = FieldValues.deserializeValue(
+                field.fieldType,
+                obj[rawFieldId],
+            );
             if (isValueParsed) {
                 pairs.push([field.fieldId, parsedValue]);
             }
@@ -274,7 +267,10 @@ export class FieldValues {
         return new FieldValues(pairs);
     }
 
-    private static deserializeValue(fieldType: FieldType, value: string | null | undefined): readonly [FieldValue, boolean] {
+    private static deserializeValue(
+        fieldType: FieldType,
+        value: string | null | undefined,
+    ): readonly [FieldValue, boolean] {
         switch (fieldType) {
             case FieldType.Select:
             case FieldType.Textual:
@@ -324,10 +320,7 @@ class CurrentValue<T> {
 export class FilterPair<T> {
     public readonly currentValue: CurrentValue<ExtractFieldValue<T>>;
 
-    constructor(
-        public readonly field: EnsureField<T>,
-        initValue: ExtractFieldValue<T>
-    ){
+    constructor(public readonly field: EnsureField<T>, initValue: ExtractFieldValue<T>) {
         this.currentValue = new CurrentValue(initValue);
     }
 
@@ -359,16 +352,18 @@ export class FilterFields {
     private readonly pairById: Map<number, FilterPair<Field>>;
 
     constructor(public readonly pairs: ReadonlyArray<FilterPair<Field>>) {
-        this.pairById = new Map<number, FilterPair<Field>>(pairs.map(pair => [pair.field.fieldId.value, pair]));
+        this.pairById = new Map<number, FilterPair<Field>>(
+            pairs.map((pair) => [pair.field.fieldId.value, pair]),
+        );
     }
 
     /**
      * Clones the current filter fields
      */
     public static copy(fields: FilterFields): FilterFields {
-        const pairsArray = Array
-            .from(fields.pairById.values())
-            .map(pair => FilterFields.copyPair(pair));
+        const pairsArray = Array.from(fields.pairById.values()).map((pair) =>
+            FilterFields.copyPair(pair),
+        );
 
         return new FilterFields(pairsArray);
     }
@@ -420,8 +415,10 @@ export class FilterFields {
      */
     public values(): FieldValues {
         return new FieldValues(
-            Array.from(this.pairById.entries())
-                .map(([fieldId, pair]) => [new FieldId(fieldId), pair.currentValue[INTERNAL_CURRENT_VALUE]])
+            Array.from(this.pairById.entries()).map(([fieldId, pair]) => [
+                new FieldId(fieldId),
+                pair.currentValue[INTERNAL_CURRENT_VALUE],
+            ]),
         );
     }
 }
@@ -431,7 +428,7 @@ export class FilterFields {
  *********/
 
 export class FilterId {
-    constructor(public readonly value: number) { }
+    constructor(public readonly value: number) {}
 
     public toString(): string {
         return this.value.toString();
@@ -448,10 +445,7 @@ export class FilterId {
 export class Filter {
     public readonly fields: FilterFields;
 
-    constructor(
-        public readonly filterId: FilterId,
-        pairs: readonly FilterPair<Field>[],
-    ) {
+    constructor(public readonly filterId: FilterId, pairs: readonly FilterPair<Field>[]) {
         this.fields = new FilterFields(pairs);
     }
 }

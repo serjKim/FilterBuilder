@@ -1,20 +1,20 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatSelectModule } from '@angular/material/select';
 import {
     NumericFieldComponent,
     SelectFieldComponent,
-    TextualFieldComponent
+    TextualFieldComponent,
 } from './filter-fields';
-import { FilterComponent } from './filter/filter.component';
-import { RouteFieldValues } from './route-field-values';
 import { CheckboxFieldComponent } from './filter-fields/checkbox-field/checkbox-field.component';
 import { RadioFieldComponent } from './filter-fields/radio-field/radio-field.component';
+import { FilterComponent } from './filter/filter.component';
+import { RouteFieldValues } from './route-field-values';
 
 @NgModule({
     declarations: [
@@ -32,13 +32,9 @@ import { RadioFieldComponent } from './filter-fields/radio-field/radio-field.com
         MatInputModule,
         MatSelectModule,
         MatCheckboxModule,
-        MatRadioModule
+        MatRadioModule,
     ],
-    exports: [
-        FilterComponent,
-    ],
-    providers: [
-        RouteFieldValues,
-    ]
+    exports: [FilterComponent],
+    providers: [RouteFieldValues],
 })
-export class FiltersModule { }
+export class FiltersModule {}

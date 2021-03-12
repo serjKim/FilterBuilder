@@ -5,7 +5,7 @@ import { FieldType, Filter } from '../filter';
     selector: 'app-filter',
     templateUrl: './filter.component.html',
     styleUrls: ['./filter.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FilterComponent implements OnInit {
     @Input()
@@ -13,8 +13,7 @@ export class FilterComponent implements OnInit {
 
     public readonly fieldType = FieldType;
 
-    constructor() { }
+    constructor() {}
 
-    ngOnInit(): void {
-    }
+    public ngOnInit(): void {}
 }
