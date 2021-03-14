@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Field, FieldValueEmitter, FilterPair, StringValue, TextualField } from '../../filter';
 
@@ -20,9 +20,6 @@ export class TextualFieldComponent {
         this.field = pair.field;
         this.value$ = pair.currentValue.value$;
     }
-
-    @Output()
-    public stringValueChange = new EventEmitter<string>();
 
     constructor(private fieldValueEmitter: FieldValueEmitter) {}
 
